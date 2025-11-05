@@ -143,37 +143,138 @@ echo '{"data": [...], "query": "search term", "limit": 5}' | python3 scripts/ai_
 ## Project Structure
 
 ```
-laravel-ai-search/
-├── app/
-│   ├── Http/Controllers/
-│   │   ├── SearchController.php    # Search API controller
-│   │   └── DataController.php      # Data management controller
-│   └── Models/
-│       └── Document.php             # Document model
-├── database/
-│   └── migrations/
-│       └── create_documents_table.php
-├── resources/
-│   ├── js/
-│   │   ├── components/
-│   │   │   ├── Dashboard.vue        # Main dashboard
-│   │   │   ├── SearchComponent.vue  # Search interface
-│   │   │   ├── DataFeedComponent.vue # Data input form
-│   │   │   └── DocumentList.vue     # Document list view
-│   │   ├── types/
-│   │   │   └── index.ts            # TypeScript definitions
-│   │   ├── app.ts                  # Vue app entry point
-│   │   └── style.css               # Global styles
-│   └── views/
-│       └── app.blade.php           # Main HTML template
-├── routes/
-│   ├── api.php                     # API routes
-│   └── web.php                     # Web routes
-├── scripts/
-│   └── ai_search_api.py           # Enhanced Python search script
-├── vite.config.ts                 # Vite configuration
-├── tsconfig.json                  # TypeScript configuration
-└── package.json                   # Node dependencies
+kepler/
+├── ai/
+│   └── ai_search.py                    # AI search implementation
+│
+├── www/                                # Main Laravel application
+│   ├── app/
+│   │   ├── Actions/
+│   │   │   └── Fortify/               # Authentication actions
+│   │   ├── Console/
+│   │   │   ├── Commands/
+│   │   │   │   └── SearchStats.php    # Search statistics command
+│   │   │   └── Kernel.php
+│   │   ├── Exceptions/
+│   │   │   └── Handler.php
+│   │   ├── Http/
+│   │   │   ├── Controllers/
+│   │   │   │   ├── Controller.php
+│   │   │   │   ├── DataController.php         # Document CRUD & bulk upload
+│   │   │   │   ├── SearchController.php       # AI search API
+│   │   │   │   └── Settings/                  # User settings controllers
+│   │   │   ├── Middleware/                    # HTTP middleware
+│   │   │   ├── Requests/
+│   │   │   │   └── Settings/                  # Form requests
+│   │   │   └── Kernel.php
+│   │   ├── Models/
+│   │   │   ├── Document.php           # Document model with folder path
+│   │   │   └── User.php               # User model with 2FA
+│   │   ├── Providers/
+│   │   │   ├── AppServiceProvider.php
+│   │   │   ├── FortifyServiceProvider.php
+│   │   │   └── RouteServiceProvider.php
+│   │   └── Services/
+│   │       └── FileProcessingService.php      # File parsing service
+│   │
+│   ├── config/
+│   │   ├── aisearch.php               # AI search configuration
+│   │   ├── app.php
+│   │   ├── auth.php
+│   │   ├── database.php
+│   │   ├── fortify.php
+│   │   └── inertia.php
+│   │
+│   ├── database/
+│   │   ├── migrations/
+│   │   │   ├── create_users_table.php
+│   │   │   ├── create_documents_table.php
+│   │   │   ├── add_two_factor_columns_to_users_table.php
+│   │   │   └── add_path_to_documents_table.php
+│   │   ├── factories/
+│   │   └── seeders/
+│   │
+│   ├── docs/
+│   │   ├── ARCHITECTURE.md            # System architecture
+│   │   ├── BULK_UPLOAD_GUIDE.md       # Bulk upload documentation
+│   │   ├── BULK_UPLOAD_QUICKSTART.md  # Quick start guide
+│   │   ├── DOCUMENTATION_INDEX.md     # Documentation index
+│   │   ├── FOLDER_TREE_FEATURE.md     # Folder tree documentation
+│   │   ├── INSTALLATION_GUIDE.md      # Installation guide
+│   │   ├── PROJECT_SUMMARY.md         # Project summary
+│   │   ├── QUICKSTART.md              # Quick start
+│   │   ├── README_BULK_UPLOAD.md      # Bulk upload README
+│   │   └── VISUAL_GUIDE.md            # Visual guide
+│   │
+│   ├── resources/
+│   │   ├── css/
+│   │   │   └── app.css
+│   │   ├── js/
+│   │   │   ├── actions/               # Auto-generated Wayfinder actions
+│   │   │   ├── components/
+│   │   │   │   ├── AlertError.vue
+│   │   │   │   ├── AppContent.vue
+│   │   │   │   ├── AppHeader.vue
+│   │   │   │   ├── AppLogo.vue
+│   │   │   │   ├── AppShell.vue
+│   │   │   │   ├── AppSidebar.vue
+│   │   │   │   ├── BulkUploadComponent.vue    # Bulk upload interface
+│   │   │   │   ├── Dashboard.vue              # Main dashboard
+│   │   │   │   ├── DataFeedComponent.vue      # Data input form
+│   │   │   │   ├── DocumentCard.vue
+│   │   │   │   ├── DocumentList.vue           # Document list
+│   │   │   │   ├── FolderTree.vue             # Folder navigation
+│   │   │   │   ├── SearchComponent.vue        # Search interface
+│   │   │   │   ├── TwoFactorSetupModal.vue    # 2FA setup
+│   │   │   │   └── ui/                        # shadcn/ui components
+│   │   │   ├── composables/           # Vue composables
+│   │   │   ├── layouts/               # Page layouts
+│   │   │   │   ├── AppLayout.vue
+│   │   │   │   ├── AuthLayout.vue
+│   │   │   │   └── settings/
+│   │   │   ├── lib/
+│   │   │   │   └── utils.ts
+│   │   │   ├── pages/
+│   │   │   │   ├── auth/              # Authentication pages
+│   │   │   │   ├── settings/          # User settings pages
+│   │   │   │   ├── Dashboard.vue
+│   │   │   │   ├── DocumentShow.vue
+│   │   │   │   └── Welcome.vue
+│   │   │   ├── routes/                # Wayfinder routes
+│   │   │   ├── types/                 # TypeScript definitions
+│   │   │   ├── wayfinder/             # Wayfinder config
+│   │   │   ├── app.ts                 # Vue app entry
+│   │   │   └── ssr.ts                 # SSR entry
+│   │   └── views/
+│   │       └── app.blade.php
+│   │
+│   ├── routes/
+│   │   ├── api.php                    # API routes
+│   │   ├── console.php                # Console routes
+│   │   ├── settings.php               # Settings routes
+│   │   └── web.php                    # Web routes
+│   │
+│   ├── scripts/
+│   │   └── ai_search_api.py           # Python AI search script
+│   │
+│   ├── storage/
+│   │   ├── app/
+│   │   │   ├── public/
+│   │   │   └── uploads/               # Uploaded files
+│   │   ├── framework/
+│   │   └── logs/
+│   │
+│   ├── tests/
+│   │   ├── Feature/
+│   │   ├── Unit/
+│   │   └── Pest.php
+│   │
+│   ├── composer.json                  # PHP dependencies
+│   ├── package.json                   # Node dependencies
+│   ├── vite.config.ts                 # Vite configuration
+│   ├── tsconfig.json                  # TypeScript configuration
+│   ├── components.json                # shadcn/ui config
+│   └── README.md                      # This file
 ```
 
 ## Development
