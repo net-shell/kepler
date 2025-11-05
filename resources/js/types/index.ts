@@ -10,6 +10,13 @@ export interface Document {
     updated_at: string;
 }
 
+export interface User {
+    id: number;
+    name: string;
+    email: string;
+    email_verified_at?: string | null;
+}
+
 export interface SearchResult {
     score: number;
     record: Document;

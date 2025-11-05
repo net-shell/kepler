@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import type { StatsResponse } from '../types';
+import { ref, onMounted, computed } from 'vue';
+import { Link, usePage } from '@inertiajs/vue3';
+import type { StatsResponse, User } from '../types';
 import SearchComponent from '../components/SearchComponent.vue';
 import DataFeedComponent from '../components/DataFeedComponent.vue';
 import BulkUploadComponent from '../components/BulkUploadComponent.vue';
@@ -9,6 +10,14 @@ import DocumentList from '../components/DocumentList.vue';
 const activeTab = ref<'search' | 'feed' | 'bulk' | 'list'>('search');
 const stats = ref<StatsResponse | null>(null);
 const loading = ref(false);
+
+const page = usePage<{
+    auth: {
+        user: User | null;
+    };
+}>();
+
+const user = computed(() => page.props.auth?.user);
 
 const loadStats = async () => {
     try {
@@ -36,7 +45,13 @@ const handleDataAdded = () => {
         <header class="dashboard-header">
             <div class="header-top">
                 <h1>AI Search Dashboard</h1>
-                <a href="/" class="back-link">← Back to Landing</a>
+                <div class="header-actions">
+                    <span v-if="user" class="user-name">{{ user.name }}</span>
+                    <Link href="/" class="back-link">← Back to Landing</Link>
+                    <Link href="/logout" method="post" as="button" class="logout-btn">
+                    Logout
+                    </Link>
+                </div>
             </div>
             <div class="stats" v-if="stats">
                 <div class="stat-card">
@@ -89,6 +104,18 @@ const handleDataAdded = () => {
     margin-bottom: 1rem;
 }
 
+.header-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.user-name {
+    color: #64748b;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
 .back-link {
     color: #667eea;
     text-decoration: none;
@@ -102,6 +129,25 @@ const handleDataAdded = () => {
 .back-link:hover {
     background: #f8fafc;
     color: #764ba2;
+}
+
+.logout-btn {
+    background: #ef4444;
+    color: white;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+}
+
+.logout-btn:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
 }
 
 .dashboard-header h1 {
