@@ -23,7 +23,11 @@ Route::prefix('data')->group(function () {
     Route::post('/', [DataController::class, 'store']);
     Route::post('/batch', [DataController::class, 'batchStore']);
     Route::post('/bulk-upload', [DataController::class, 'bulkUpload']);
+    Route::post('/bulk-delete', [DataController::class, 'bulkDestroy']);
+    Route::get('/folder-tree', [DataController::class, 'getFolderTree']);
+    Route::get('/by-folder', [DataController::class, 'getByFolder']);
     Route::get('/{id}', [DataController::class, 'show']);
     Route::put('/{id}', [DataController::class, 'update']);
+    Route::post('/{id}/move', [DataController::class, 'moveDocument']);
     Route::delete('/{id}', [DataController::class, 'destroy']);
 });

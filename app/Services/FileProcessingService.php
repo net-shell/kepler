@@ -67,6 +67,13 @@ class FileProcessingService
             ];
 
             // Optional fields
+            if (isset($data['path']) && !empty($data['path'])) {
+                $document['path'] = trim($data['path']);
+            } else {
+                // Default path: /filename
+                $document['path'] = '/' . trim($data['title']);
+            }
+
             if (isset($data['tags']) && !empty($data['tags'])) {
                 $document['tags'] = array_map('trim', explode(',', $data['tags']));
             }
@@ -124,6 +131,12 @@ class FileProcessingService
                 'body' => trim($data['body'] ?? ''),
             ];
 
+            if (isset($data['path']) && !empty($data['path'])) {
+                $document['path'] = trim($data['path']);
+            } else {
+                $document['path'] = '/' . trim($data['title'] ?? 'untitled');
+            }
+
             if (isset($data['tags']) && !empty($data['tags'])) {
                 $document['tags'] = array_map('trim', explode(',', $data['tags']));
             }
@@ -160,6 +173,7 @@ class FileProcessingService
 
         return [[
             'title' => $file->getClientOriginalName(),
+            'path' => '/' . $file->getClientOriginalName(),
             'body' => trim($text),
             'tags' => ['pdf', 'imported'],
             'metadata' => [
@@ -182,6 +196,7 @@ class FileProcessingService
 
         return [[
             'title' => $file->getClientOriginalName(),
+            'path' => '/' . $file->getClientOriginalName(),
             'body' => trim($content),
             'tags' => ['text', 'imported'],
             'metadata' => [
@@ -228,6 +243,12 @@ class FileProcessingService
                 'title' => trim($item['title']),
                 'body' => trim($item['body']),
             ];
+
+            if (isset($item['path']) && !empty($item['path'])) {
+                $document['path'] = trim($item['path']);
+            } else {
+                $document['path'] = '/' . trim($item['title']);
+            }
 
             if (isset($item['tags']) && is_array($item['tags'])) {
                 $document['tags'] = $item['tags'];

@@ -47,9 +47,17 @@ class SearchController extends Controller
             // Call Python script
             $results = $this->callPythonSearch($data, $query, $limit);
 
+            // Remove body from results to reduce payload size
+            $resultsWithoutBody = array_map(function ($result) {
+                if (isset($result['record']['body'])) {
+                    unset($result['record']['body']);
+                }
+                return $result;
+            }, $results);
+
             return response()->json([
                 'success' => true,
-                'results' => $results,
+                'results' => $resultsWithoutBody,
                 'query' => $query
             ]);
         } catch (\Exception $e) {
