@@ -34,7 +34,10 @@ const handleDataAdded = () => {
 <template>
     <div class="dashboard">
         <header class="dashboard-header">
-            <h1>AI Search Dashboard</h1>
+            <div class="header-top">
+                <h1>AI Search Dashboard</h1>
+                <a href="/" class="back-link">← Back to Landing</a>
+            </div>
             <div class="stats" v-if="stats">
                 <div class="stat-card">
                     <span class="stat-label">Total Documents</span>
@@ -79,10 +82,32 @@ const handleDataAdded = () => {
     margin-bottom: 2rem;
 }
 
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.back-link {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+}
+
+.back-link:hover {
+    background: #f8fafc;
+    color: #764ba2;
+}
+
 .dashboard-header h1 {
     font-size: 2.5rem;
     color: #2c3e50;
-    margin-bottom: 1rem;
+    margin: 0;
 }
 
 .stats {
