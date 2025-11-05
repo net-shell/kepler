@@ -3,11 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
+use App\Services\FileProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class DataController extends Controller
 {
+    public function __construct(
+        private FileProcessingService $fileProcessingService
+    ) {}
     /**
      * Feed data into the system (single document)
      */
@@ -169,293 +173,85 @@ class DataController extends Controller
     }
 
     /**
-     * Bulk upload documents from file (CSV, TXT, Excel, PDF, JSON, TSV)
+     * Bulk upload documents from file(s) (CSV, TXT, Excel, PDF, JSON, TSV)
+     * Supports both single and multiple file uploads
      */
     public function bulkUpload(Request $request): JsonResponse
     {
         $request->validate([
-            'file' => 'required|file|mimes:csv,txt,xlsx,xls,pdf,json,tsv|max:10240' // 10MB max
+            'file' => 'required_without:files|file|mimes:csv,txt,xlsx,xls,pdf,json,tsv|max:10240', // 10MB max per file
+            'files' => 'required_without:file|array',
+            'files.*' => 'file|mimes:csv,txt,xlsx,xls,pdf,json,tsv|max:10240' // 10MB max per file
         ]);
 
         try {
-            $file = $request->file('file');
-            $extension = $file->getClientOriginalExtension();
-            $documents = [];
+            $files = [];
 
-            switch (strtolower($extension)) {
-                case 'csv':
-                case 'tsv':
-                    $documents = $this->parseCSV($file, $extension === 'tsv' ? "\t" : ',');
-                    break;
-
-                case 'xlsx':
-                case 'xls':
-                    $documents = $this->parseExcel($file);
-                    break;
-
-                case 'pdf':
-                    $documents = $this->parsePDF($file);
-                    break;
-
-                case 'txt':
-                    $documents = $this->parseText($file);
-                    break;
-
-                case 'json':
-                    $documents = $this->parseJSON($file);
-                    break;
-
-                default:
-                    return response()->json([
-                        'success' => false,
-                        'error' => 'Unsupported file format'
-                    ], 400);
+            // Support both single file and multiple files
+            if ($request->hasFile('file')) {
+                $files[] = $request->file('file');
             }
 
-            if (empty($documents)) {
+            if ($request->hasFile('files')) {
+                $files = array_merge($files, $request->file('files'));
+            }
+
+            if (empty($files)) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'No valid documents found in file'
+                    'error' => 'No files provided'
+                ], 400);
+            }
+
+            $allDocuments = [];
+            $fileResults = [];
+
+            // Process each file
+            foreach ($files as $file) {
+                try {
+                    $documents = $this->fileProcessingService->processFile($file);
+                    $allDocuments = array_merge($allDocuments, $documents);
+
+                    $fileResults[] = [
+                        'filename' => $file->getClientOriginalName(),
+                        'status' => 'success',
+                        'documents_found' => count($documents)
+                    ];
+                } catch (\Exception $e) {
+                    $fileResults[] = [
+                        'filename' => $file->getClientOriginalName(),
+                        'status' => 'failed',
+                        'error' => $e->getMessage()
+                    ];
+                }
+            }
+
+            if (empty($allDocuments)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'No valid documents found in any file',
+                    'file_results' => $fileResults
                 ], 400);
             }
 
             // Create documents in database
             $created = [];
-            foreach ($documents as $docData) {
+            foreach ($allDocuments as $docData) {
                 $created[] = Document::create($docData);
             }
 
             return response()->json([
                 'success' => true,
-                'message' => count($created) . ' documents uploaded successfully',
-                'count' => count($created)
+                'message' => count($created) . ' documents uploaded successfully from ' . count($files) . ' file(s)',
+                'count' => count($created),
+                'files_processed' => count($files),
+                'file_results' => $fileResults
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to process file: ' . $e->getMessage()
+                'error' => 'Failed to process files: ' . $e->getMessage()
             ], 500);
         }
-    }
-
-    /**
-     * Parse CSV/TSV file
-     */
-    private function parseCSV($file, string $delimiter = ','): array
-    {
-        $documents = [];
-        $handle = fopen($file->getRealPath(), 'r');
-
-        if ($handle === false) {
-            throw new \Exception('Could not open file');
-        }
-
-        // Read header
-        $header = fgetcsv($handle, 0, $delimiter);
-        if ($header === false) {
-            fclose($handle);
-            throw new \Exception('Invalid CSV format');
-        }
-
-        // Normalize headers
-        $header = array_map('trim', $header);
-        $header = array_map('strtolower', $header);
-
-        // Check required columns
-        if (!in_array('title', $header) || !in_array('body', $header)) {
-            fclose($handle);
-            throw new \Exception('CSV must contain "title" and "body" columns');
-        }
-
-        // Read rows
-        while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
-            if (count($row) !== count($header)) {
-                continue; // Skip malformed rows
-            }
-
-            $data = array_combine($header, $row);
-
-            $document = [
-                'title' => trim($data['title']),
-                'body' => trim($data['body']),
-            ];
-
-            // Optional fields
-            if (isset($data['tags']) && !empty($data['tags'])) {
-                $document['tags'] = array_map('trim', explode(',', $data['tags']));
-            }
-
-            if (isset($data['metadata']) && !empty($data['metadata'])) {
-                $document['metadata'] = json_decode($data['metadata'], true) ?? [];
-            }
-
-            if (!empty($document['title']) && !empty($document['body'])) {
-                $documents[] = $document;
-            }
-        }
-
-        fclose($handle);
-        return $documents;
-    }
-
-    /**
-     * Parse Excel file
-     */
-    private function parseExcel($file): array
-    {
-        // Check if PhpSpreadsheet is available
-        if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
-            throw new \Exception('Excel parsing requires PhpSpreadsheet package. Please install it with: composer require phpoffice/phpspreadsheet');
-        }
-
-        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
-        $worksheet = $spreadsheet->getActiveSheet();
-        $rows = $worksheet->toArray();
-
-        if (empty($rows)) {
-            throw new \Exception('Excel file is empty');
-        }
-
-        // First row is header
-        $header = array_map('trim', array_shift($rows));
-        $header = array_map('strtolower', $header);
-
-        // Check required columns
-        if (!in_array('title', $header) || !in_array('body', $header)) {
-            throw new \Exception('Excel must contain "title" and "body" columns');
-        }
-
-        $documents = [];
-        foreach ($rows as $row) {
-            if (count($row) !== count($header)) {
-                continue;
-            }
-
-            $data = array_combine($header, $row);
-
-            $document = [
-                'title' => trim($data['title'] ?? ''),
-                'body' => trim($data['body'] ?? ''),
-            ];
-
-            if (isset($data['tags']) && !empty($data['tags'])) {
-                $document['tags'] = array_map('trim', explode(',', $data['tags']));
-            }
-
-            if (isset($data['metadata']) && !empty($data['metadata'])) {
-                $document['metadata'] = json_decode($data['metadata'], true) ?? [];
-            }
-
-            if (!empty($document['title']) && !empty($document['body'])) {
-                $documents[] = $document;
-            }
-        }
-
-        return $documents;
-    }
-
-    /**
-     * Parse PDF file
-     */
-    private function parsePDF($file): array
-    {
-        // Check if Smalot PdfParser is available
-        if (!class_exists('\Smalot\PdfParser\Parser')) {
-            throw new \Exception('PDF parsing requires smalot/pdfparser package. Please install it with: composer require smalot/pdfparser');
-        }
-
-        $parser = new \Smalot\PdfParser\Parser();
-        $pdf = $parser->parseFile($file->getRealPath());
-        $text = $pdf->getText();
-
-        if (empty(trim($text))) {
-            throw new \Exception('Could not extract text from PDF');
-        }
-
-        return [[
-            'title' => $file->getClientOriginalName(),
-            'body' => trim($text),
-            'tags' => ['pdf', 'imported'],
-            'metadata' => [
-                'source_file' => $file->getClientOriginalName(),
-                'file_type' => 'pdf'
-            ]
-        ]];
-    }
-
-    /**
-     * Parse plain text file
-     */
-    private function parseText($file): array
-    {
-        $content = file_get_contents($file->getRealPath());
-
-        if ($content === false || empty(trim($content))) {
-            throw new \Exception('Could not read text file or file is empty');
-        }
-
-        return [[
-            'title' => $file->getClientOriginalName(),
-            'body' => trim($content),
-            'tags' => ['text', 'imported'],
-            'metadata' => [
-                'source_file' => $file->getClientOriginalName(),
-                'file_type' => 'txt'
-            ]
-        ]];
-    }
-
-    /**
-     * Parse JSON file
-     */
-    private function parseJSON($file): array
-    {
-        $content = file_get_contents($file->getRealPath());
-
-        if ($content === false) {
-            throw new \Exception('Could not read JSON file');
-        }
-
-        $data = json_decode($content, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \Exception('Invalid JSON format: ' . json_last_error_msg());
-        }
-
-        // Ensure it's an array
-        if (!is_array($data)) {
-            throw new \Exception('JSON must contain an array of documents');
-        }
-
-        // If it's a single document object, wrap it in an array
-        if (isset($data['title']) && isset($data['body'])) {
-            $data = [$data];
-        }
-
-        $documents = [];
-        foreach ($data as $item) {
-            if (!isset($item['title']) || !isset($item['body'])) {
-                continue; // Skip items without required fields
-            }
-
-            $document = [
-                'title' => trim($item['title']),
-                'body' => trim($item['body']),
-            ];
-
-            if (isset($item['tags']) && is_array($item['tags'])) {
-                $document['tags'] = $item['tags'];
-            }
-
-            if (isset($item['metadata']) && is_array($item['metadata'])) {
-                $document['metadata'] = $item['metadata'];
-            }
-
-            if (!empty($document['title']) && !empty($document['body'])) {
-                $documents[] = $document;
-            }
-        }
-
-        return $documents;
     }
 }

@@ -24,7 +24,7 @@ class SearchController extends Controller
         try {
             // Get all documents from database
             $documents = Document::all();
-            
+
             if ($documents->isEmpty()) {
                 return response()->json([
                     'success' => true,
@@ -52,7 +52,6 @@ class SearchController extends Controller
                 'results' => $results,
                 'query' => $query
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -66,8 +65,8 @@ class SearchController extends Controller
      */
     private function callPythonSearch(array $data, string $query, int $limit): array
     {
-        $scriptPath = base_path('scripts/ai_search_api.py');
-        
+        $scriptPath = base_path(config('aisearch.script_path'));
+
         // Prepare input data
         $input = json_encode([
             'data' => $data,
@@ -82,8 +81,14 @@ class SearchController extends Controller
             2 => ['pipe', 'w']   // stderr
         ];
 
+        // Determine Python executable path
+        $venvPath = base_path(config('aisearch.venv_path'));
+        $pythonCmd = $venvPath
+            ? escapeshellarg($venvPath . '/bin/python3')
+            : 'python3';
+
         $process = proc_open(
-            'python3 ' . escapeshellarg($scriptPath),
+            $pythonCmd . ' ' . escapeshellarg($scriptPath),
             $descriptorspec,
             $pipes
         );
@@ -109,7 +114,7 @@ class SearchController extends Controller
         }
 
         $result = json_decode($output, true);
-        
+
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \RuntimeException('Invalid JSON from Python script: ' . $output);
         }

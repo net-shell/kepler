@@ -43,7 +43,7 @@ A modern full-stack application combining Laravel backend with Vue 3 (TypeScript
 
 1. **Clone the repository**
    ```bash
-   cd /Users/boyan/Documents/_DEV/kepler/laravel-ai-search
+   git clone https://github.com/net-shell/kepler.git
    ```
 
 2. **Install PHP dependencies**
@@ -58,12 +58,13 @@ A modern full-stack application combining Laravel backend with Vue 3 (TypeScript
 
 4. **Install Python dependencies**
    ```bash
-   pip install scikit-learn numpy
+   pip3 install scikit-learn numpy dotenv
    ```
 
 5. **Set up environment**
    ```bash
    cp .env.example .env
+   python3 -m venv scripts/venv
    php artisan key:generate
    ```
 

@@ -3,15 +3,23 @@
 ai_search_api.py — Improved AI Search with API integration
 -----------------------------------------------------------
 Enhanced version with better error handling, caching, and API support.
-Requires: pip install scikit-learn numpy
+Requires: pip install scikit-learn numpy python-dotenv
 """
 
 import json
 import sys
+import os
+import sqlite3
 import numpy as np
+from pathlib import Path
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from typing import List, Dict, Optional
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
 
 
 class AISearchEngine:
@@ -19,11 +27,11 @@ class AISearchEngine:
     Enhanced AI Search Engine with TF-IDF vectorization and cosine similarity.
     Supports batch processing, caching, and detailed scoring.
     """
-    
+
     def __init__(self, min_df: int = 1, max_features: Optional[int] = None):
         """
         Initialize the search engine.
-        
+
         Args:
             min_df: Minimum document frequency for terms
             max_features: Maximum number of features (None for unlimited)
@@ -43,10 +51,10 @@ class AISearchEngine:
     def ingest(self, records: List[Dict]) -> Dict:
         """
         Flatten structured records into text and build TF-IDF matrix.
-        
+
         Args:
             records: List of document dictionaries
-            
+
         Returns:
             Dictionary with ingestion statistics
         """
@@ -56,14 +64,14 @@ class AISearchEngine:
                 "message": "No records provided",
                 "count": 0
             }
-        
+
         self.data = records
         self.texts = [self._flatten(r) for r in records]
-        
+
         try:
             self.tfidf_matrix = self.vectorizer.fit_transform(self.texts)
             self.is_fitted = True
-            
+
             return {
                 "status": "success",
                 "message": f"Successfully indexed {len(records)} records",
@@ -82,29 +90,29 @@ class AISearchEngine:
         """
         Convert structured dict into a single searchable string.
         Gives more weight to title and handles nested structures.
-        
+
         Args:
             record: Document dictionary
-            
+
         Returns:
             Flattened searchable text
         """
         parts = []
-        
+
         # Title gets triple weight for importance
         if 'title' in record:
             title = str(record['title'])
             parts.extend([title, title, title])
-        
+
         # Body content
         if 'body' in record:
             parts.append(str(record['body']))
-        
+
         # Tags get double weight
         if 'tags' in record and isinstance(record['tags'], list):
             tags = ' '.join(str(t) for t in record['tags'])
             parts.extend([tags, tags])
-        
+
         # Other fields
         for k, v in record.items():
             if k not in ['title', 'body', 'tags']:
@@ -112,46 +120,46 @@ class AISearchEngine:
                     parts.append(json.dumps(v))
                 else:
                     parts.append(str(v))
-        
+
         return " ".join(parts)
 
     def search(self, query: str, k: int = 5, min_score: float = 0.0) -> List[Dict]:
         """
         Return top-k most similar records.
-        
+
         Args:
             query: Search query string
             k: Number of results to return
             min_score: Minimum similarity score threshold
-            
+
         Returns:
             List of result dictionaries with scores and records
         """
         if not self.is_fitted or self.tfidf_matrix is None:
             raise RuntimeError("No data indexed yet. Call ingest() first.")
-        
+
         if not query.strip():
             raise ValueError("Query cannot be empty")
-        
+
         try:
             # Transform query
             q_vec = self.vectorizer.transform([query])
-            
+
             # Calculate similarities
             sims = cosine_similarity(q_vec, self.tfidf_matrix)[0]
-            
+
             # Filter by minimum score
             valid_indices = np.where(sims >= min_score)[0]
-            
+
             if len(valid_indices) == 0:
                 return []
-            
+
             # Get top-k from valid results
             valid_sims = sims[valid_indices]
             top_k_local = min(k, len(valid_indices))
             top_local_ids = np.argsort(-valid_sims)[:top_k_local]
             top_ids = valid_indices[top_local_ids]
-            
+
             # Build results
             results = []
             for idx in top_ids:
@@ -160,9 +168,9 @@ class AISearchEngine:
                     "record": self.data[idx],
                     "rank": len(results) + 1
                 })
-            
+
             return results
-            
+
         except Exception as e:
             raise RuntimeError(f"Search failed: {str(e)}")
 
@@ -170,7 +178,7 @@ class AISearchEngine:
         """Get statistics about the indexed data."""
         if not self.is_fitted:
             return {"status": "not_fitted"}
-        
+
         return {
             "status": "fitted",
             "total_documents": len(self.data),
@@ -184,39 +192,53 @@ def main():
     """
     Main function for API mode.
     Reads JSON input from stdin and outputs JSON results to stdout.
+    Always loads data from the SQLite database.
     """
     try:
         # Read input from stdin
         input_data = json.loads(sys.stdin.read())
-        
+
         # Extract parameters
-        data = input_data.get('data', [])
         query = input_data.get('query', '')
         limit = input_data.get('limit', 5)
         min_score = input_data.get('min_score', 0.0)
-        
+
         # Initialize search engine
         engine = AISearchEngine()
-        
+
+        # Load data from database
+        db_path = get_db_path()
+        data = load_documents_from_db(db_path)
+
         # Ingest data
         ingest_result = engine.ingest(data)
-        
+
         if ingest_result['status'] != 'success':
             print(json.dumps({
                 "error": ingest_result['message']
             }))
             sys.exit(1)
-        
+
         # Perform search
         results = engine.search(query, k=limit, min_score=min_score)
-        
+
         # Output results
         print(json.dumps(results))
         sys.exit(0)
-        
+
     except json.JSONDecodeError as e:
         print(json.dumps({
             "error": f"Invalid JSON input: {str(e)}"
+        }))
+        sys.exit(1)
+    except FileNotFoundError as e:
+        print(json.dumps({
+            "error": f"Database error: {str(e)}"
+        }))
+        sys.exit(1)
+    except sqlite3.Error as e:
+        print(json.dumps({
+            "error": f"Database error: {str(e)}"
         }))
         sys.exit(1)
     except Exception as e:
@@ -226,83 +248,169 @@ def main():
         sys.exit(1)
 
 
-# ---------- DEMO MODE ----------
-def demo():
-    """Interactive demo mode for testing."""
-    sample_data = [
-        {
-            "id": 1,
-            "title": "Refund Policy",
-            "body": "Items can be returned within 30 days for a full refund. Original packaging required.",
-            "tags": ["refund", "returns", "policy"]
-        },
-        {
-            "id": 2,
-            "title": "Privacy Statement",
-            "body": "We never share your personal data with third parties. Your information is encrypted and secure.",
-            "tags": ["privacy", "security", "data-protection"]
-        },
-        {
-            "id": 3,
-            "title": "Shipping Information",
-            "body": "Worldwide delivery with tracking number. Express shipping available for urgent orders.",
-            "tags": ["shipping", "delivery", "international"]
-        },
-        {
-            "id": 4,
-            "title": "AI Search Project",
-            "body": "An open-source system for semantic search on structured data using TF-IDF and cosine similarity.",
-            "tags": ["AI", "search", "open-source", "machine-learning"]
-        },
-        {
-            "id": 5,
-            "title": "Customer Support",
-            "body": "24/7 customer support available via email, chat, and phone. Average response time: 2 hours.",
-            "tags": ["support", "help", "customer-service"]
-        },
-    ]
+# ---------- INTERACTIVE MODE ----------
+def load_documents_from_db(db_path: str) -> List[Dict]:
+    """
+    Load documents from SQLite database.
 
-    engine = AISearchEngine()
-    result = engine.ingest(sample_data)
-    
-    print(f"=== AI Search Engine Demo ===")
-    print(f"Status: {result['message']}")
-    print(f"Vocabulary size: {result['vocabulary_size']}")
-    print(f"\nType your query (or 'exit' to quit):\n")
-    
-    while True:
-        try:
-            q = input("> ").strip()
-            if q.lower() in {"exit", "quit", "q"}:
+    Args:
+        db_path: Path to the SQLite database file
+
+    Returns:
+        List of document dictionaries
+    """
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"Database file not found: {db_path}")
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row  # Enable column access by name
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, title, body, tags, metadata, created_at, updated_at
+            FROM documents
+            ORDER BY id
+        """)
+
+        rows = cursor.fetchall()
+        documents = []
+
+        for row in rows:
+            doc = {
+                'id': row['id'],
+                'title': row['title'],
+                'body': row['body'],
+            }
+
+            # Parse JSON fields
+            if row['tags']:
+                try:
+                    doc['tags'] = json.loads(row['tags'])
+                except (json.JSONDecodeError, TypeError):
+                    doc['tags'] = []
+            else:
+                doc['tags'] = []
+
+            if row['metadata']:
+                try:
+                    doc['metadata'] = json.loads(row['metadata'])
+                except (json.JSONDecodeError, TypeError):
+                    doc['metadata'] = {}
+            else:
+                doc['metadata'] = {}
+
+            documents.append(doc)
+
+        return documents
+
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        raise
+    except Exception as e:
+        print(f"Error loading documents: {e}")
+        raise
+    finally:
+        conn.close()
+
+
+def get_db_path() -> str:
+    """
+    Get database path from environment or use default.
+
+    Returns:
+        Path to the database file
+    """
+    # Try to load .env file if python-dotenv is available
+    if load_dotenv is not None:
+        # Look for .env file in the parent directory (www folder)
+        script_dir = Path(__file__).parent
+        env_path = script_dir.parent / '.env'
+        if env_path.exists():
+            load_dotenv(env_path)
+
+    # Get database path from environment or use default
+    db_path = os.getenv('AI_SEARCH_DB_PATH', 'database/database.sqlite')
+
+    # If relative path, make it relative to the www directory
+    if not os.path.isabs(db_path):
+        script_dir = Path(__file__).parent
+        www_dir = script_dir.parent
+        db_path = str(www_dir / db_path)
+
+    return db_path
+
+
+def interactive():
+    """Interactive mode for testing with live database."""
+    print("=== AI Search Engine - Interactive Mode ===\n")
+
+    try:
+        db_path = get_db_path()
+        print(f"Loading documents from: {db_path}")
+
+        documents = load_documents_from_db(db_path)
+
+        if not documents:
+            print("No documents found in database.")
+            return
+
+        print(f"Loaded {len(documents)} document(s)\n")
+
+        engine = AISearchEngine()
+        result = engine.ingest(documents)
+
+        print(f"Status: {result['message']}")
+        print(f"Vocabulary size: {result['vocabulary_size']}")
+        print(f"\nType your query (or 'exit' to quit):\n")
+
+        while True:
+            try:
+                q = input("> ").strip()
+                if q.lower() in {"exit", "quit", "q"}:
+                    break
+
+                if not q:
+                    continue
+
+                results = engine.search(q, k=5)
+
+                if not results:
+                    print("No results found.\n")
+                    continue
+
+                print(f"\nTop {len(results)} results:")
+                for r in results:
+                    record = r['record']
+                    print(f"\n[Rank {r['rank']} | Score: {r['score']:.3f}]")
+                    print(f"  ID: {record.get('id', 'N/A')}")
+                    print(f"  Title: {record['title']}")
+                    print(f"  Body: {record['body'][:100]}{'...' if len(record['body']) > 100 else ''}")
+                    if record.get('tags'):
+                        print(f"  Tags: {', '.join(str(t) for t in record['tags'])}")
+                print()
+
+            except KeyboardInterrupt:
+                print("\nExiting...")
                 break
-            
-            if not q:
-                continue
-            
-            results = engine.search(q, k=3)
-            
-            if not results:
-                print("No results found.\n")
-                continue
-            
-            print("\nTop results:")
-            for r in results:
-                record = r['record']
-                print(f"[Rank {r['rank']} | Score: {r['score']:.3f}]")
-                print(f"  Title: {record['title']}")
-                print(f"  Body: {record['body'][:80]}...")
-                print(f"  Tags: {', '.join(record['tags'])}\n")
-                
-        except KeyboardInterrupt:
-            print("\nExiting...")
-            break
-        except Exception as e:
-            print(f"Error: {e}\n")
+            except Exception as e:
+                print(f"Error: {e}\n")
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        print("\nMake sure:")
+        print("1. The database file exists")
+        print("2. AI_SEARCH_DB_PATH is correctly set in .env")
+        print("3. You've run migrations: php artisan migrate")
+    except Exception as e:
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
-    # Check if running in API mode (with stdin input) or demo mode
+    # Check if running in API mode (with stdin input) or interactive mode
     if sys.stdin.isatty():
-        demo()
+        interactive()
     else:
         main()
