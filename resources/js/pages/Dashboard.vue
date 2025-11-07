@@ -47,6 +47,7 @@ const handleDataAdded = () => {
                 <h1>AI Search Dashboard</h1>
                 <div class="header-actions">
                     <span v-if="user" class="user-name">{{ user.name }}</span>
+                    <Link href="/data-sources" class="nav-link">🔌 Data Sources</Link>
                     <Link href="/" class="back-link">← Back to Landing</Link>
                     <Link href="/logout" method="post" as="button" class="logout-btn">
                     Logout

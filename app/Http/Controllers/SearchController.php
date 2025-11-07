@@ -3,11 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
+use App\Services\DataSourceService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class SearchController extends Controller
 {
+    protected DataSourceService $dataSourceService;
+
+    public function __construct(DataSourceService $dataSourceService)
+    {
+        $this->dataSourceService = $dataSourceService;
+    }
+
     /**
      * Search documents using the Python AI search script
      */
@@ -15,37 +23,53 @@ class SearchController extends Controller
     {
         $request->validate([
             'query' => 'required|string|min:1',
-            'limit' => 'integer|min:1|max:100'
+            'limit' => 'integer|min:1|max:100',
+            'include_documents' => 'boolean',
+            'include_data_sources' => 'boolean',
         ]);
 
         $query = $request->input('query');
         $limit = $request->input('limit', 5);
+        $includeDocuments = $request->boolean('include_documents', true);
+        $includeDataSources = $request->boolean('include_data_sources', true);
 
         try {
-            // Get all documents from database
-            $documents = Document::all();
+            $allData = [];
 
-            if ($documents->isEmpty()) {
+            // Get documents from database
+            if ($includeDocuments) {
+                $documents = Document::all();
+
+                $docData = $documents->map(function ($doc) {
+                    return [
+                        'id' => $doc->id,
+                        'title' => $doc->title,
+                        'body' => $doc->body,
+                        'tags' => $doc->tags ?? [],
+                        'metadata' => $doc->metadata ?? [],
+                        '_source_type' => 'document',
+                    ];
+                })->toArray();
+
+                $allData = array_merge($allData, $docData);
+            }
+
+            // Get data from external sources
+            if ($includeDataSources) {
+                $sourceData = $this->dataSourceService->getAllSourcesData(true);
+                $allData = array_merge($allData, $sourceData);
+            }
+
+            if (empty($allData)) {
                 return response()->json([
                     'success' => true,
                     'results' => [],
-                    'message' => 'No documents in database'
+                    'message' => 'No data available'
                 ]);
             }
 
-            // Prepare data for Python script
-            $data = $documents->map(function ($doc) {
-                return [
-                    'id' => $doc->id,
-                    'title' => $doc->title,
-                    'body' => $doc->body,
-                    'tags' => $doc->tags ?? [],
-                    'metadata' => $doc->metadata ?? []
-                ];
-            })->toArray();
-
             // Call Python script
-            $results = $this->callPythonSearch($data, $query, $limit);
+            $results = $this->callPythonSearch($allData, $query, $limit);
 
             // Remove body from results to reduce payload size
             $resultsWithoutBody = array_map(function ($result) {
@@ -58,7 +82,8 @@ class SearchController extends Controller
             return response()->json([
                 'success' => true,
                 'results' => $resultsWithoutBody,
-                'query' => $query
+                'query' => $query,
+                'total_items_searched' => count($allData),
             ]);
         } catch (\Exception $e) {
             return response()->json([

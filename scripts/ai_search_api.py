@@ -192,7 +192,7 @@ def main():
     """
     Main function for API mode.
     Reads JSON input from stdin and outputs JSON results to stdout.
-    Always loads data from the SQLite database.
+    Accepts either 'data' array directly or loads from database.
     """
     try:
         # Read input from stdin
@@ -206,9 +206,14 @@ def main():
         # Initialize search engine
         engine = AISearchEngine()
 
-        # Load data from database
-        db_path = get_db_path()
-        data = load_documents_from_db(db_path)
+        # Check if data is provided directly in input
+        if 'data' in input_data and input_data['data']:
+            # Use provided data
+            data = input_data['data']
+        else:
+            # Fall back to loading from database
+            db_path = get_db_path()
+            data = load_documents_from_db(db_path)
 
         # Ingest data
         ingest_result = engine.ingest(data)

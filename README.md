@@ -5,11 +5,14 @@ A modern full-stack application combining Laravel backend with Vue 3 (TypeScript
 ## Features
 
 - 🔍 **Semantic Search**: TF-IDF-based search with cosine similarity scoring
-- 📊 **User Dashboard**: Interactive Vue 3 dashboard with TypeScript
+- � **Data Sources**: Connect to external APIs, URLs, RSS feeds, and databases
+- �📊 **User Dashboard**: Interactive Vue 3 dashboard with TypeScript
 - 🗄️ **SQLite Database**: Lightweight database for document storage
-- 🔌 **REST API**: Complete API for searching and managing documents
+- 🌐 **REST API**: Complete API for searching and managing documents
 - 🐍 **Python Integration**: Enhanced AI search script with API support
 - 🎨 **Modern UI**: Beautiful, responsive interface with gradient designs
+- 🔄 **Smart Caching**: Configurable cache TTL with automatic background refresh
+- 🔐 **API Authentication**: Support for Bearer, API Key, Basic Auth, and OAuth2
 
 ## Tech Stack
 
@@ -28,6 +31,42 @@ A modern full-stack application combining Laravel backend with Vue 3 (TypeScript
 - Python 3.8+
 - scikit-learn (TF-IDF vectorization)
 - NumPy (numerical operations)
+
+## New: Data Sources Feature 🔌
+
+**Search across multiple data sources simultaneously!**
+
+The Data Sources feature allows you to integrate external data into your AI search:
+
+### Supported Source Types
+
+1. **Database** 🗄️ - Execute SQL queries against any database
+2. **URL/File** 🌐 - Fetch JSON, XML, CSV, RSS feeds, or plain text
+3. **API** 🔌 - Connect to REST APIs with authentication
+
+### Quick Start
+
+```bash
+# Seed sample data sources
+php artisan db:seed --class=DataSourceSeeder
+
+# Refresh all data sources
+php artisan data-sources:refresh --all
+
+# View in browser
+# Navigate to: /data-sources
+```
+
+### Example Uses
+
+- Fetch product catalogs from external APIs
+- Import RSS news feeds
+- Query remote databases
+- Aggregate data from multiple sources
+- Cache frequently accessed external data
+
+**See [docs/DATA_SOURCES_GUIDE.md](docs/DATA_SOURCES_GUIDE.md) for detailed documentation.**
+
 
 ## Installation
 
