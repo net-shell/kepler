@@ -5,9 +5,8 @@ import AuthenticatedLayout from '../layouts/AuthenticatedLayout.vue';
 import SearchComponent from '../components/SearchComponent.vue';
 import DataFeedComponent from '../components/DataFeedComponent.vue';
 import BulkUploadComponent from '../components/BulkUploadComponent.vue';
-import DocumentList from '../components/DocumentList.vue';
 
-const activeTab = ref<'search' | 'feed' | 'bulk' | 'list'>('search');
+const activeTab = ref<'search' | 'feed' | 'bulk'>('search');
 const stats = ref<StatsResponse | null>(null);
 const loading = ref(false);
 
@@ -54,16 +53,12 @@ const handleDataAdded = () => {
                 <button :class="{ active: activeTab === 'bulk' }" @click="activeTab = 'bulk'">
                     📤 Bulk Upload
                 </button>
-                <button :class="{ active: activeTab === 'list' }" @click="activeTab = 'list'">
-                    📋 Documents
-                </button>
             </nav>
 
             <main class="dashboard-content">
                 <SearchComponent v-if="activeTab === 'search'" />
                 <DataFeedComponent v-else-if="activeTab === 'feed'" @data-added="handleDataAdded" />
                 <BulkUploadComponent v-else-if="activeTab === 'bulk'" @data-uploaded="handleDataAdded" />
-                <DocumentList v-else-if="activeTab === 'list'" @document-updated="loadStats" />
             </main>
         </div>
     </AuthenticatedLayout>

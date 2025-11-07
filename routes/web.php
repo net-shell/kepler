@@ -22,6 +22,10 @@ Route::middleware(['auth'])->group(function () {
         return Inertia::render('DocumentShow', ['id' => $id]);
     })->name('document.show');
 
+    Route::get('/documents', function () {
+        return Inertia::render('Documents');
+    })->name('documents');
+
     Route::get('/data-sources', function () {
         return Inertia::render('DataSources');
     })->name('data-sources');

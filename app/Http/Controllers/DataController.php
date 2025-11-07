@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Services\FileProcessingService;
+use App\Http\Controllers\DataFeedController;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -11,7 +12,8 @@ use Illuminate\Support\Facades\Log;
 class DataController extends Controller
 {
     public function __construct(
-        private FileProcessingService $fileProcessingService
+        private FileProcessingService $fileProcessingService,
+        private DataFeedController $dataFeedController
     ) {}
     /**
      * Feed data into the system (single document)
@@ -104,12 +106,38 @@ class DataController extends Controller
      */
     public function show(int $id): JsonResponse
     {
+        // Handle negative IDs (data source items)
+        if ($id < 0) {
+            return $this->showDataSourceItem($id);
+        }
+
+        // Handle positive IDs (database documents)
         $document = Document::find($id);
 
         if (!$document) {
             return response()->json([
                 'success' => false,
                 'error' => 'Document not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'document' => $document
+        ]);
+    }
+
+    /**
+     * Show a data source item by its pseudo-ID
+     */
+    private function showDataSourceItem(int $pseudoId): JsonResponse
+    {
+        $document = $this->dataFeedController->findDataSourceItemByPseudoId($pseudoId);
+
+        if (!$document) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Data source item not found'
             ], 404);
         }
 

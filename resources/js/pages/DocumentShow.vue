@@ -61,6 +61,9 @@ onMounted(() => {
         <div v-else-if="document" class="document-content">
             <div class="document-header">
                 <h2>{{ document.path || document.title }}</h2>
+                <span v-if="document.metadata?.is_imported" class="imported-badge">
+                    🔗 Data Source Item
+                </span>
             </div>
 
             <div class="document-meta">
@@ -71,6 +74,10 @@ onMounted(() => {
                 <div class="meta-row">
                     <strong>Path:</strong>
                     <span>{{ document.path }}</span>
+                </div>
+                <div v-if="document.metadata?.is_imported" class="meta-row">
+                    <strong>Source:</strong>
+                    <span>{{ document.metadata.source_name }} ({{ document.metadata.data_source_type }})</span>
                 </div>
                 <div class="meta-row">
                     <strong>Created:</strong>
@@ -180,12 +187,26 @@ h1 {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 1rem;
 }
 
 .document-header h2 {
     margin: 0;
     font-size: 1.75rem;
     word-break: break-all;
+    flex: 1;
+}
+
+.imported-badge {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .document-meta {

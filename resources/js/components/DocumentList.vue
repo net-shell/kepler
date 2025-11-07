@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { router } from '@inertiajs/vue3';
-import type { Document, FolderTreeResponse, FolderTreeNode } from '../types';
+import type { Document, FolderTreeNode } from '../types';
 import FolderTree from './FolderTree.vue';
 
 const emit = defineEmits<{
@@ -17,20 +17,78 @@ const currentFolder = ref<string>('/');
 const newFolderPath = ref('');
 const showNewFolderInput = ref(false);
 
-const loadFolderTree = async () => {
-    try {
-        loading.value = true;
-        const response = await fetch('/api/data/folder-tree');
-        const data: FolderTreeResponse = await response.json();
+const buildFolderTreeFromDocuments = (docs: Document[]): FolderTreeNode[] => {
+    const folders: Record<string, FolderTreeNode> = {};
 
-        if (data.success) {
-            folderTree.value = data.tree;
+    docs.forEach((doc) => {
+        let path = doc.path ?? '/' + doc.title;
+
+        // Skip if path is just root
+        if (path === '/') {
+            path = '/' + doc.title;
         }
-    } catch (error) {
-        console.error('Failed to load folder tree:', error);
-    } finally {
-        loading.value = false;
-    }
+
+        const parts = path.split('/').filter(p => p.length > 0);
+
+        // Build folder structure
+        let currentPath = '';
+        parts.forEach((part, index) => {
+            currentPath += '/' + part;
+            const isFile = index === parts.length - 1;
+
+            if (!folders[currentPath]) {
+                if (isFile) {
+                    // This is the file itself
+                    folders[currentPath] = {
+                        path: currentPath,
+                        name: part,
+                        type: 'file',
+                        id: doc.id,
+                        document: doc,
+                        children: []
+                    };
+                } else {
+                    // This is a folder
+                    folders[currentPath] = {
+                        path: currentPath,
+                        name: part,
+                        type: 'folder',
+                        children: []
+                    };
+                }
+            }
+        });
+    });
+
+    // Build hierarchical structure
+    const tree: FolderTreeNode[] = [];
+
+    // First, identify root level items
+    Object.values(folders).forEach((item) => {
+        const parentPath = item.path.substring(0, item.path.lastIndexOf('/'));
+
+        if (parentPath === '' || parentPath === '/') {
+            // Root level item
+            tree.push(item);
+        }
+    });
+
+    // Then, recursively add children to all folders
+    const addChildren = (node: FolderTreeNode) => {
+        if (node.type === 'folder') {
+            node.children = Object.values(folders).filter(
+                (item) => {
+                    const itemParentPath = item.path.substring(0, item.path.lastIndexOf('/'));
+                    return itemParentPath === node.path;
+                }
+            );
+            node.children.forEach(addChildren);
+        }
+    };
+
+    tree.forEach(addChildren);
+
+    return tree;
 };
 
 const loadAllDocuments = async () => {
@@ -39,6 +97,8 @@ const loadAllDocuments = async () => {
         const response = await fetch('/api/feed');
         const data = await response.json();
         documents.value = data.data || [];
+        // Build folder tree from loaded documents
+        folderTree.value = buildFolderTreeFromDocuments(documents.value);
     } catch (error) {
         console.error('Failed to load documents:', error);
     } finally {
@@ -55,6 +115,12 @@ const selectFolder = (path: string) => {
 };
 
 const deleteDocument = async (id: number) => {
+    // Check if this is an imported data source item (negative ID)
+    if (id < 0) {
+        alert('Data source items cannot be deleted from here. Please manage them in the data source settings.');
+        return;
+    }
+
     if (!confirm('Are you sure you want to delete this document?')) {
         return;
     }
@@ -73,7 +139,6 @@ const deleteDocument = async (id: number) => {
             if (selectedDocument.value?.id === id) {
                 selectedDocument.value = null;
             }
-            await loadFolderTree();
             await loadAllDocuments();
             emit('documentUpdated');
         } else {
@@ -85,6 +150,12 @@ const deleteDocument = async (id: number) => {
 };
 
 const moveDocument = async (documentId: number, newPath: string) => {
+    // Check if this is an imported data source item (negative ID)
+    if (documentId < 0) {
+        alert('Data source items cannot be moved. They are managed by their source.');
+        return;
+    }
+
     try {
         const response = await fetch(`/api/data/${documentId}/move`, {
             method: 'POST',
@@ -98,7 +169,6 @@ const moveDocument = async (documentId: number, newPath: string) => {
         const data = await response.json();
 
         if (data.success) {
-            await loadFolderTree();
             await loadAllDocuments();
             emit('documentUpdated');
         } else {
@@ -141,7 +211,6 @@ const saveNewFolder = async () => {
         if (data.success) {
             newFolderPath.value = '';
             showNewFolderInput.value = false;
-            await loadFolderTree();
             await loadAllDocuments();
             emit('documentUpdated');
         } else {
@@ -162,6 +231,14 @@ const deleteFolder = async (path: string) => {
     const docsInFolder = documents.value.filter(doc =>
         doc.path && (doc.path.startsWith(path + '/') || doc.path === path)
     );
+
+    // Check if any are data source items (negative IDs)
+    const dataSourceItems = docsInFolder.filter(doc => doc.id < 0);
+    if (dataSourceItems.length > 0) {
+        alert(`This folder contains ${dataSourceItems.length} data source item(s) that cannot be deleted. Please manage data source items in the data source settings.`);
+        return;
+    }
+
     const count = docsInFolder.length;
 
     const message = count > 0
@@ -195,7 +272,6 @@ const deleteFolder = async (path: string) => {
         }
 
         // Reload data
-        await loadFolderTree();
         await loadAllDocuments();
         emit('documentUpdated');
 
@@ -217,7 +293,6 @@ const viewDocument = (id: number) => {
 };
 
 onMounted(() => {
-    loadFolderTree();
     loadAllDocuments();
 });
 </script>

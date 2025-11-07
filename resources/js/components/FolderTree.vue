@@ -133,13 +133,15 @@ const handleDeleteFolder = (path: string) => {
             </div>
 
             <!-- File -->
-            <div v-else-if="node.type === 'file'" class="file-item"
-                :class="{ 'is-selected': currentPath === node.path }" draggable="true"
-                @dragstart="onDragStart($event, node)" @dragend="onDragEnd"
-                @click="node.document && emit('selectDocument', node.document)" @dblclick="handleFileDoubleClick(node)">
-                <span class="file-icon">📄</span>
+            <div v-else-if="node.type === 'file'" class="file-item" :class="{
+                'is-selected': currentPath === node.path,
+                'is-imported': node.document?.metadata?.is_imported
+            }" :draggable="!node.document?.metadata?.is_imported" @dragstart="onDragStart($event, node)"
+                @dragend="onDragEnd" @click="node.document && emit('selectDocument', node.document)"
+                @dblclick="handleFileDoubleClick(node)">
+                <span class="file-icon">{{ node.document?.metadata?.is_imported ? '🔗' : '📄' }}</span>
                 <span class="file-name">{{ getFileName(node.path) }}</span>
-                <button v-if="node.id" class="delete-btn" @click.stop="emit('deleteDocument', node.id)"
+                <button v-if="node.id && node.id > 0" class="delete-btn" @click.stop="emit('deleteDocument', node.id)"
                     title="Delete document">
                     🗑️
                 </button>
@@ -187,6 +189,15 @@ const handleDeleteFolder = (path: string) => {
 .file-item.is-selected {
     background-color: #e0e7ff;
     color: #4c51bf;
+}
+
+.file-item.is-imported {
+    opacity: 0.8;
+    font-style: italic;
+}
+
+.file-item.is-imported .file-name {
+    color: #6366f1;
 }
 
 .folder-icon,

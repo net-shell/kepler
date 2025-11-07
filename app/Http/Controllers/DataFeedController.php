@@ -34,11 +34,16 @@ class DataFeedController extends Controller
                     return [
                         'id' => $doc->id,
                         'title' => $doc->title,
+                        'path' => $doc->path,
                         'body' => $doc->body,
                         'tags' => $doc->tags ?? [],
-                        'metadata' => $doc->metadata ?? [],
-                        '_source_type' => 'document',
-                        '_source_name' => 'Database Documents',
+                        'metadata' => array_merge($doc->metadata ?? [], [
+                            'source_type' => 'database',
+                            'source_name' => 'Database Documents',
+                            'is_imported' => false,
+                        ]),
+                        'created_at' => $doc->created_at?->toIso8601String(),
+                        'updated_at' => $doc->updated_at?->toIso8601String(),
                     ];
                 })->toArray();
 
@@ -48,7 +53,13 @@ class DataFeedController extends Controller
             // Include data from external sources
             if ($includeDataSources) {
                 $sourceData = $this->dataSourceService->getAllSourcesData($useCache);
-                $allData = array_merge($allData, $sourceData);
+
+                // Transform source data to Document-like structure
+                $transformedSourceData = array_map(function ($item) {
+                    return $this->transformSourceItemToDocument($item);
+                }, $sourceData);
+
+                $allData = array_merge($allData, $transformedSourceData);
             }
 
             return response()->json([
@@ -62,6 +73,78 @@ class DataFeedController extends Controller
                 'message' => 'Failed to fetch data feed: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Transform a data source item to Document model structure
+     *
+     * @param array $item
+     * @return array
+     */
+    protected function transformSourceItemToDocument(array $item): array
+    {
+        // Extract source metadata
+        $sourceId = $item['_source_id'] ?? null;
+        $sourceName = $item['_source_name'] ?? 'Unknown Source';
+        $sourceType = $item['_source_type'] ?? 'unknown';
+
+        // Remove internal metadata from item
+        $cleanItem = $item;
+        unset($cleanItem['_source_id'], $cleanItem['_source_name'], $cleanItem['_source_type']);
+
+        // Determine title (try common field names)
+        $title = $cleanItem['title']
+            ?? $cleanItem['name']
+            ?? $cleanItem['label']
+            ?? $cleanItem['heading']
+            ?? $cleanItem['subject']
+            ?? 'Untitled';
+
+        // Determine body/content (try common field names)
+        $body = $cleanItem['body']
+            ?? $cleanItem['content']
+            ?? $cleanItem['description']
+            ?? $cleanItem['text']
+            ?? $cleanItem['message']
+            ?? json_encode($cleanItem);
+
+        // Generate a path based on source
+        $itemId = $cleanItem['id'] ?? $cleanItem['identifier'] ?? uniqid();
+        $path = "/imports/{$sourceType}/{$sourceName}/{$itemId}";
+
+        // Generate a pseudo-ID for data source items (negative to avoid conflicts with database IDs)
+        // Use hash of path to ensure consistency
+        $pseudoId = -abs(crc32($path));
+
+        // Extract or create tags
+        $tags = [];
+        if (isset($cleanItem['tags']) && is_array($cleanItem['tags'])) {
+            $tags = $cleanItem['tags'];
+        } elseif (isset($cleanItem['categories']) && is_array($cleanItem['categories'])) {
+            $tags = $cleanItem['categories'];
+        }
+
+        // Build metadata
+        $metadata = [
+            'source_type' => 'data_source',
+            'source_name' => $sourceName,
+            'source_id' => $sourceId,
+            'data_source_type' => $sourceType,
+            'is_imported' => true,
+            'imported_at' => now()->toIso8601String(),
+            'original_data' => $cleanItem, // Keep original data for reference
+        ];
+
+        return [
+            'id' => $pseudoId,
+            'title' => $title,
+            'path' => $path,
+            'body' => $body,
+            'tags' => $tags,
+            'metadata' => $metadata,
+            'created_at' => $cleanItem['created_at'] ?? $cleanItem['date'] ?? now()->toIso8601String(),
+            'updated_at' => $cleanItem['updated_at'] ?? $cleanItem['modified'] ?? now()->toIso8601String(),
+        ];
     }
 
     /**
@@ -97,6 +180,32 @@ class DataFeedController extends Controller
                 'success' => false,
                 'message' => 'Failed to get stats: ' . $e->getMessage(),
             ], 500);
+        }
+    }
+
+    /**
+     * Find a data source item by its pseudo-ID
+     * Returns the transformed document structure or null if not found
+     */
+    public function findDataSourceItemByPseudoId(int $pseudoId): ?array
+    {
+        try {
+            $allSourceData = $this->dataSourceService->getAllSourcesData(true);
+
+            foreach ($allSourceData as $item) {
+                $transformed = $this->transformSourceItemToDocument($item);
+
+                // Calculate pseudo-ID
+                $calculatedPseudoId = -abs(crc32($transformed['path']));
+
+                if ($calculatedPseudoId === $pseudoId) {
+                    return array_merge($transformed, ['id' => $pseudoId]);
+                }
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            return null;
         }
     }
 }

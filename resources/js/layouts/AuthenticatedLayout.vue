@@ -21,6 +21,7 @@ const user = computed(() => page.props.auth?.user);
                     <div class="header-actions">
                         <span v-if="user" class="user-name">{{ user.name }}</span>
                         <Link href="/dashboard" class="nav-link">🏠 Dashboard</Link>
+                        <Link href="/documents" class="nav-link">📋 Documents</Link>
                         <Link href="/data-sources" class="nav-link">🔌 Data Sources</Link>
                         <Link href="/" class="nav-link">← Back to Landing</Link>
                         <Link href="/logout" method="post" as="button" class="logout-btn">
