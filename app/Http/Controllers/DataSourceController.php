@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreDataSourceRequest;
+use App\Http\Requests\TestDataSourceRequest;
+use App\Http\Requests\UpdateDataSourceRequest;
 use App\Models\DataSource;
 use App\Services\DataSourceService;
 use Illuminate\Http\Request;
@@ -53,18 +56,9 @@ class DataSourceController extends Controller
     /**
      * Create a new data source
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreDataSourceRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'type' => 'required|in:database,url,api',
-            'config' => 'required|array',
-            'cache_ttl' => 'required|integer|min:0',
-            'enabled' => 'boolean',
-            'description' => 'nullable|string',
-        ]);
-
-        $source = DataSource::create($validated);
+        $source = DataSource::create($request->validated());
 
         return response()->json([
             'success' => true,
@@ -76,20 +70,11 @@ class DataSourceController extends Controller
     /**
      * Update a data source
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(UpdateDataSourceRequest $request, int $id): JsonResponse
     {
         $source = DataSource::findOrFail($id);
 
-        $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'type' => 'sometimes|required|in:database,url,api',
-            'config' => 'sometimes|required|array',
-            'cache_ttl' => 'sometimes|required|integer|min:0',
-            'enabled' => 'boolean',
-            'description' => 'nullable|string',
-        ]);
-
-        $source->update($validated);
+        $source->update($request->validated());
 
         return response()->json([
             'success' => true,
@@ -115,14 +100,10 @@ class DataSourceController extends Controller
     /**
      * Test a data source connection
      */
-    public function test(Request $request): JsonResponse
+    public function test(TestDataSourceRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'type' => 'required|in:database,url,api',
-            'config' => 'required|array',
-        ]);
-
         try {
+            $validated = $request->validated();
             $result = $this->dataSourceService->testConnection(
                 $validated['config'],
                 $validated['type']

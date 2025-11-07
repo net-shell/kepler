@@ -2,6 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BatchStoreDocumentRequest;
+use App\Http\Requests\BulkDestroyDocumentRequest;
+use App\Http\Requests\BulkUploadRequest;
+use App\Http\Requests\MoveDocumentRequest;
+use App\Http\Requests\StoreDocumentRequest;
+use App\Http\Requests\UpdateDocumentRequest;
 use App\Models\Document;
 use App\Services\FileProcessingService;
 use App\Http\Controllers\DataFeedController;
@@ -18,16 +24,9 @@ class DataController extends Controller
     /**
      * Feed data into the system (single document)
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreDocumentRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'path' => 'nullable|string|max:1000',
-            'body' => 'required|string',
-            'tags' => 'array',
-            'tags.*' => 'string',
-            'metadata' => 'array'
-        ]);
+        $validated = $request->validated();
 
         // If no path provided, use title as filename in root
         if (empty($validated['path'])) {
@@ -53,17 +52,8 @@ class DataController extends Controller
     /**
      * Batch feed data (multiple documents)
      */
-    public function batchStore(Request $request): JsonResponse
+    public function batchStore(BatchStoreDocumentRequest $request): JsonResponse
     {
-        $request->validate([
-            'documents' => 'required|array',
-            'documents.*.title' => 'required|string|max:255',
-            'documents.*.path' => 'nullable|string|max:1000',
-            'documents.*.body' => 'required|string',
-            'documents.*.tags' => 'array',
-            'documents.*.metadata' => 'array'
-        ]);
-
         try {
             $documents = [];
 
@@ -150,7 +140,7 @@ class DataController extends Controller
     /**
      * Update a document
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(UpdateDocumentRequest $request, int $id): JsonResponse
     {
         $document = Document::find($id);
 
@@ -161,17 +151,8 @@ class DataController extends Controller
             ], 404);
         }
 
-        $validated = $request->validate([
-            'title' => 'string|max:255',
-            'path' => 'string|max:1000',
-            'body' => 'string',
-            'tags' => 'array',
-            'tags.*' => 'string',
-            'metadata' => 'array'
-        ]);
-
         try {
-            $document->update($validated);
+            $document->update($request->validated());
 
             return response()->json([
                 'success' => true,
@@ -218,15 +199,10 @@ class DataController extends Controller
     /**
      * Bulk delete documents
      */
-    public function bulkDestroy(Request $request): JsonResponse
+    public function bulkDestroy(BulkDestroyDocumentRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'integer|exists:documents,id'
-        ]);
-
         try {
-            $count = Document::whereIn('id', $validated['ids'])->delete();
+            $count = Document::whereIn('id', $request->validated()['ids'])->delete();
 
             return response()->json([
                 'success' => true,
@@ -245,14 +221,8 @@ class DataController extends Controller
      * Bulk upload documents from file(s) (CSV, TXT, Excel, PDF, JSON, TSV)
      * Supports both single and multiple file uploads
      */
-    public function bulkUpload(Request $request): JsonResponse
+    public function bulkUpload(BulkUploadRequest $request): JsonResponse
     {
-        $request->validate([
-            'file' => 'required_without:files|file|mimes:csv,txt,xlsx,xls,pdf,json,tsv|max:10240', // 10MB max per file
-            'files' => 'required_without:file|array',
-            'files.*' => 'file|mimes:csv,txt,xlsx,xls,pdf,json,tsv|max:10240' // 10MB max per file
-        ]);
-
         try {
             $files = [];
 
@@ -460,7 +430,7 @@ class DataController extends Controller
     /**
      * Move document to a new path
      */
-    public function moveDocument(Request $request, int $id): JsonResponse
+    public function moveDocument(MoveDocumentRequest $request, int $id): JsonResponse
     {
         $document = Document::find($id);
 
@@ -471,12 +441,8 @@ class DataController extends Controller
             ], 404);
         }
 
-        $validated = $request->validate([
-            'new_path' => 'required|string|max:1000'
-        ]);
-
         try {
-            $document->update(['path' => $validated['new_path']]);
+            $document->update(['path' => $request->validated()['new_path']]);
 
             return response()->json([
                 'success' => true,

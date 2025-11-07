@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\SearchRequest;
 use App\Models\Document;
 use App\Services\DataSourceService;
 use Illuminate\Http\Request;
@@ -19,15 +20,8 @@ class SearchController extends Controller
     /**
      * Search documents using the Python AI search script
      */
-    public function search(Request $request): JsonResponse
+    public function search(SearchRequest $request): JsonResponse
     {
-        $request->validate([
-            'query' => 'required|string|min:1',
-            'limit' => 'integer|min:1|max:100',
-            'include_documents' => 'boolean',
-            'include_data_sources' => 'boolean',
-        ]);
-
         $query = $request->input('query');
         $limit = $request->input('limit', 5);
         $includeDocuments = $request->boolean('include_documents', true);
