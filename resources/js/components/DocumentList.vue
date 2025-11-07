@@ -36,7 +36,7 @@ const loadFolderTree = async () => {
 const loadAllDocuments = async () => {
     try {
         loading.value = true;
-        const response = await fetch('/api/data');
+        const response = await fetch('/api/feed');
         const data = await response.json();
         documents.value = data.data || [];
     } catch (error) {

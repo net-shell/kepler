@@ -3,7 +3,7 @@
 ai_search_api.py — Improved AI Search with API integration
 -----------------------------------------------------------
 Enhanced version with better error handling, caching, and API support.
-Requires: pip install scikit-learn numpy python-dotenv
+Requires: pip install scikit-learn numpy python-dotenv requests
 """
 
 import json
@@ -11,6 +11,7 @@ import sys
 import os
 import sqlite3
 import numpy as np
+import requests
 from pathlib import Path
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -192,7 +193,7 @@ def main():
     """
     Main function for API mode.
     Reads JSON input from stdin and outputs JSON results to stdout.
-    Accepts either 'data' array directly or loads from database.
+    Accepts either 'data' array directly or loads from API feed.
     """
     try:
         # Read input from stdin
@@ -211,9 +212,8 @@ def main():
             # Use provided data
             data = input_data['data']
         else:
-            # Fall back to loading from database
-            db_path = get_db_path()
-            data = load_documents_from_db(db_path)
+            # Fall back to loading from API feed
+            data = load_documents_from_feed()
 
         # Ingest data
         ingest_result = engine.ingest(data)
@@ -236,6 +236,11 @@ def main():
             "error": f"Invalid JSON input: {str(e)}"
         }))
         sys.exit(1)
+    except requests.RequestException as e:
+        print(json.dumps({
+            "error": f"API request error: {str(e)}"
+        }))
+        sys.exit(1)
     except FileNotFoundError as e:
         print(json.dumps({
             "error": f"Database error: {str(e)}"
@@ -254,6 +259,30 @@ def main():
 
 
 # ---------- INTERACTIVE MODE ----------
+def load_documents_from_feed() -> List[Dict]:
+    """
+    Load documents from API feed endpoint.
+
+    Returns:
+        List of document dictionaries
+    """
+    api_url = get_api_url()
+
+    try:
+        response = requests.get(f"{api_url}/api/feed")
+        response.raise_for_status()
+
+        data = response.json()
+
+        if not data.get('success'):
+            raise RuntimeError(f"API returned error: {data.get('message', 'Unknown error')}")
+
+        return data.get('data', [])
+
+    except requests.RequestException as e:
+        raise RuntimeError(f"Failed to fetch from API feed: {str(e)}")
+
+
 def load_documents_from_db(db_path: str) -> List[Dict]:
     """
     Load documents from SQLite database.
@@ -346,18 +375,49 @@ def get_db_path() -> str:
     return db_path
 
 
+def get_api_url() -> str:
+    """
+    Get API URL from environment or use default.
+
+    Returns:
+        Base URL for the API
+    """
+    # Try to load .env file if python-dotenv is available
+    if load_dotenv is not None:
+        # Look for .env file in the parent directory (www folder)
+        script_dir = Path(__file__).parent
+        env_path = script_dir.parent / '.env'
+        if env_path.exists():
+            load_dotenv(env_path)
+
+    # Get API URL from environment or use default
+    api_url = os.getenv('APP_URL', 'http://localhost:8000')
+
+    # Remove trailing slash if present
+    api_url = api_url.rstrip('/')
+
+    return api_url
+
+
 def interactive():
-    """Interactive mode for testing with live database."""
+    """Interactive mode for testing with live API feed."""
     print("=== AI Search Engine - Interactive Mode ===\n")
 
     try:
-        db_path = get_db_path()
-        print(f"Loading documents from: {db_path}")
+        api_url = get_api_url()
+        print(f"Loading documents from API: {api_url}/api/feed")
 
-        documents = load_documents_from_db(db_path)
+        try:
+            documents = load_documents_from_feed()
+        except Exception as api_error:
+            print(f"Failed to load from API: {api_error}")
+            print("\nFalling back to database...")
+            db_path = get_db_path()
+            print(f"Loading documents from: {db_path}")
+            documents = load_documents_from_db(db_path)
 
         if not documents:
-            print("No documents found in database.")
+            print("No documents found.")
             return
 
         print(f"Loaded {len(documents)} document(s)\n")
@@ -401,6 +461,12 @@ def interactive():
             except Exception as e:
                 print(f"Error: {e}\n")
 
+    except requests.RequestException as e:
+        print(f"API Error: {e}")
+        print("\nMake sure:")
+        print("1. The Laravel server is running (php artisan serve)")
+        print("2. APP_URL is correctly set in .env")
+        print("3. The /api/feed endpoint is accessible")
     except FileNotFoundError as e:
         print(f"Error: {e}")
         print("\nMake sure:")

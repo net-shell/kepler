@@ -239,6 +239,7 @@ onMounted(() => {
         <Head title="Data Sources" />
 
         <header class="page-header">
+            <a href="/dashboard" class="back-link">← Back to Dashboard</a>
             <h1>🔌 Data Sources</h1>
             <p class="subtitle">Manage external data sources for AI search</p>
             <button @click="createNewSource" class="btn btn-primary">
