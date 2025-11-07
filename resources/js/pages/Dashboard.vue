@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
-import type { StatsResponse, User } from '../types';
+import { ref, onMounted } from 'vue';
+import type { StatsResponse } from '../types';
+import AuthenticatedLayout from '../layouts/AuthenticatedLayout.vue';
 import SearchComponent from '../components/SearchComponent.vue';
 import DataFeedComponent from '../components/DataFeedComponent.vue';
 import BulkUploadComponent from '../components/BulkUploadComponent.vue';
@@ -10,14 +10,6 @@ import DocumentList from '../components/DocumentList.vue';
 const activeTab = ref<'search' | 'feed' | 'bulk' | 'list'>('search');
 const stats = ref<StatsResponse | null>(null);
 const loading = ref(false);
-
-const page = usePage<{
-    auth: {
-        user: User | null;
-    };
-}>();
-
-const user = computed(() => page.props.auth?.user);
 
 const loadStats = async () => {
     try {
@@ -41,120 +33,49 @@ const handleDataAdded = () => {
 </script>
 
 <template>
-    <div class="dashboard">
-        <header class="dashboard-header">
-            <div class="header-top">
-                <h1>AI Search Dashboard</h1>
-                <div class="header-actions">
-                    <span v-if="user" class="user-name">{{ user.name }}</span>
-                    <Link href="/data-sources" class="nav-link">🔌 Data Sources</Link>
-                    <Link href="/" class="back-link">← Back to Landing</Link>
-                    <Link href="/logout" method="post" as="button" class="logout-btn">
-                    Logout
-                    </Link>
+    <AuthenticatedLayout>
+        <div class="dashboard">
+            <header class="dashboard-header">
+                <div class="stats" v-if="stats">
+                    <div class="stat-card">
+                        <span class="stat-label">Total Documents</span>
+                        <span class="stat-value">{{ stats.total_documents }}</span>
+                    </div>
                 </div>
-            </div>
-            <div class="stats" v-if="stats">
-                <div class="stat-card">
-                    <span class="stat-label">Total Documents</span>
-                    <span class="stat-value">{{ stats.total_documents }}</span>
-                </div>
-            </div>
-        </header>
+            </header>
 
-        <nav class="tabs">
-            <button :class="{ active: activeTab === 'search' }" @click="activeTab = 'search'">
-                🔍 Search
-            </button>
-            <button :class="{ active: activeTab === 'feed' }" @click="activeTab = 'feed'">
-                ➕ Add Data
-            </button>
-            <button :class="{ active: activeTab === 'bulk' }" @click="activeTab = 'bulk'">
-                📤 Bulk Upload
-            </button>
-            <button :class="{ active: activeTab === 'list' }" @click="activeTab = 'list'">
-                📋 Documents
-            </button>
-        </nav>
+            <nav class="tabs">
+                <button :class="{ active: activeTab === 'search' }" @click="activeTab = 'search'">
+                    🔍 Search
+                </button>
+                <button :class="{ active: activeTab === 'feed' }" @click="activeTab = 'feed'">
+                    ➕ Add Data
+                </button>
+                <button :class="{ active: activeTab === 'bulk' }" @click="activeTab = 'bulk'">
+                    📤 Bulk Upload
+                </button>
+                <button :class="{ active: activeTab === 'list' }" @click="activeTab = 'list'">
+                    📋 Documents
+                </button>
+            </nav>
 
-        <main class="dashboard-content">
-            <SearchComponent v-if="activeTab === 'search'" />
-            <DataFeedComponent v-else-if="activeTab === 'feed'" @data-added="handleDataAdded" />
-            <BulkUploadComponent v-else-if="activeTab === 'bulk'" @data-uploaded="handleDataAdded" />
-            <DocumentList v-else-if="activeTab === 'list'" @document-updated="loadStats" />
-        </main>
-    </div>
+            <main class="dashboard-content">
+                <SearchComponent v-if="activeTab === 'search'" />
+                <DataFeedComponent v-else-if="activeTab === 'feed'" @data-added="handleDataAdded" />
+                <BulkUploadComponent v-else-if="activeTab === 'bulk'" @data-uploaded="handleDataAdded" />
+                <DocumentList v-else-if="activeTab === 'list'" @document-updated="loadStats" />
+            </main>
+        </div>
+    </AuthenticatedLayout>
 </template>
 
 <style scoped>
 .dashboard {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2rem;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .dashboard-header {
     margin-bottom: 2rem;
-}
-
-.header-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.header-actions {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-}
-
-.user-name {
-    color: #64748b;
-    font-weight: 600;
-    font-size: 1rem;
-}
-
-.back-link {
-    color: #667eea;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-}
-
-.back-link:hover {
-    background: #f8fafc;
-    color: #764ba2;
-}
-
-.logout-btn {
-    background: #ef4444;
-    color: white;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-}
-
-.logout-btn:hover {
-    background: #dc2626;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
-}
-
-.dashboard-header h1 {
-    font-size: 2.5rem;
-    color: #2c3e50;
-    margin: 0;
 }
 
 .stats {
