@@ -37,6 +37,7 @@ class SearchController extends Controller
                 $docData = $documents->map(function ($doc) {
                     return [
                         'id' => $doc->id,
+                        'pseudo_id' => $doc->id, // For consistency, use the same ID for database documents
                         'title' => $doc->title,
                         'body' => $doc->body,
                         'tags' => $doc->tags ?? [],
@@ -51,6 +52,15 @@ class SearchController extends Controller
             // Get data from external sources
             if ($includeDataSources) {
                 $sourceData = $this->dataSourceService->getAllSourcesData(true);
+
+                // Add pseudo_id to each source data item for consistency
+                $sourceData = array_map(function ($item) {
+                    if (isset($item['_pseudo_id'])) {
+                        $item['pseudo_id'] = $item['_pseudo_id'];
+                    }
+                    return $item;
+                }, $sourceData);
+
                 $allData = array_merge($allData, $sourceData);
             }
 

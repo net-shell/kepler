@@ -1,15 +1,58 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import DocumentCard from './DocumentCard.vue';
 import type { SearchResult, SearchResponse } from '../types';
 
-const query = ref('');
-const limit = ref(5);
-const results = ref<SearchResult[]>([]);
+const STORAGE_KEY = 'search_component_state';
+
+// Load initial state from localStorage
+const loadState = () => {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            return JSON.parse(saved);
+        }
+    } catch (e) {
+        console.error('Failed to load search state:', e);
+    }
+    return null;
+};
+
+const savedState = loadState();
+
+const query = ref(savedState?.query || '');
+const limit = ref(savedState?.limit || 5);
+const results = ref<SearchResult[]>(savedState?.results || []);
 const loading = ref(false);
 const error = ref('');
-const searchPerformed = ref(false);
+const searchPerformed = ref(savedState?.searchPerformed || false);
+
+// Save state to localStorage
+const saveState = () => {
+    try {
+        const state = {
+            query: query.value,
+            limit: limit.value,
+            results: results.value,
+            searchPerformed: searchPerformed.value,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+        console.error('Failed to save search state:', e);
+    }
+};
+
+// Watch for changes and save to localStorage
+watch([query, limit, results, searchPerformed], () => {
+    saveState();
+}, { deep: true });
+
+// Optional: Load state on component mount
+onMounted(() => {
+    // State is already loaded during initialization
+    // This hook is here for future enhancements
+});
 
 const search = async () => {
     if (!query.value.trim()) {

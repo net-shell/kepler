@@ -89,10 +89,17 @@ class DataSourceService
 
                 // Add source metadata to each item
                 foreach ($data as $item) {
+                    // Generate pseudo-ID for the item
+                    $itemId = $item['id'] ?? $item['identifier'] ?? uniqid();
+                    $path = "/imports/{$source->type}/{$source->name}/{$itemId}";
+                    $pseudoId = -abs(crc32($path));
+
                     $allData[] = array_merge($item, [
                         '_source_id' => $source->id,
                         '_source_name' => $source->name,
                         '_source_type' => $source->type,
+                        '_pseudo_id' => $pseudoId,
+                        '_path' => $path,
                     ]);
                 }
             } catch (\Exception $e) {

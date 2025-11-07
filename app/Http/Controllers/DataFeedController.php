@@ -87,10 +87,12 @@ class DataFeedController extends Controller
         $sourceId = $item['_source_id'] ?? null;
         $sourceName = $item['_source_name'] ?? 'Unknown Source';
         $sourceType = $item['_source_type'] ?? 'unknown';
+        $pseudoId = $item['_pseudo_id'] ?? null;
+        $path = $item['_path'] ?? null;
 
         // Remove internal metadata from item
         $cleanItem = $item;
-        unset($cleanItem['_source_id'], $cleanItem['_source_name'], $cleanItem['_source_type']);
+        unset($cleanItem['_source_id'], $cleanItem['_source_name'], $cleanItem['_source_type'], $cleanItem['_pseudo_id'], $cleanItem['_path']);
 
         // Determine title (try common field names)
         $title = $cleanItem['title']
@@ -108,13 +110,16 @@ class DataFeedController extends Controller
             ?? $cleanItem['message']
             ?? json_encode($cleanItem);
 
-        // Generate a path based on source
-        $itemId = $cleanItem['id'] ?? $cleanItem['identifier'] ?? uniqid();
-        $path = "/imports/{$sourceType}/{$sourceName}/{$itemId}";
+        // Use path from service or generate a new one
+        if (!$path) {
+            $itemId = $cleanItem['id'] ?? $cleanItem['identifier'] ?? uniqid();
+            $path = "/imports/{$sourceType}/{$sourceName}/{$itemId}";
+        }
 
-        // Generate a pseudo-ID for data source items (negative to avoid conflicts with database IDs)
-        // Use hash of path to ensure consistency
-        $pseudoId = -abs(crc32($path));
+        // Use pseudo-ID from service or generate a new one
+        if (!$pseudoId) {
+            $pseudoId = -abs(crc32($path));
+        }
 
         // Extract or create tags
         $tags = [];
