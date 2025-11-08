@@ -16,8 +16,7 @@ class DataSourceController extends Controller
 {
     public function __construct(
         protected DataSourceService $dataSourceService
-    ) {
-    }
+    ) {}
 
     /**
      * Get all data sources

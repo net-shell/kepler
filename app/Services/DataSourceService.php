@@ -16,8 +16,7 @@ class DataSourceService
      */
     public function __construct(
         protected DriverManager $driverManager
-    ) {
-    }
+    ) {}
 
     /**
      * Fetch data from a data source

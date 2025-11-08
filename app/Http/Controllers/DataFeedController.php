@@ -13,8 +13,7 @@ class DataFeedController extends Controller
 {
     public function __construct(
         protected DataSourceService $dataSourceService
-    ) {
-    }
+    ) {}
 
     /**
      * Get all data from documents and data sources combined

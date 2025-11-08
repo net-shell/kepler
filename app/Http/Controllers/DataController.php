@@ -22,8 +22,7 @@ class DataController extends Controller
     public function __construct(
         protected FileProcessingService $fileProcessingService,
         protected DataFeedController $dataFeedController
-    ) {
-    }
+    ) {}
 
     /**
      * Feed data into the system (single document)

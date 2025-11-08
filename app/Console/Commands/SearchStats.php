@@ -61,7 +61,7 @@ class SearchStats extends Command
             }
         });
         $uniqueTags = array_unique($allTags);
-        
+
         if (count($uniqueTags) > 0) {
             $this->newLine();
             $this->line("🏷️  Total Unique Tags: <fg=green>" . count($uniqueTags) . "</>");

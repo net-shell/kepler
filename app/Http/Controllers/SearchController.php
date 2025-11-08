@@ -14,8 +14,7 @@ class SearchController extends Controller
 {
     public function __construct(
         protected DataSourceService $dataSourceService
-    ) {
-    }
+    ) {}
 
     /**
      * Search documents using the Python AI search script

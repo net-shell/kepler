@@ -13,8 +13,7 @@ class ApiDriver extends AbstractDriver
 {
     public function __construct(
         protected DataParserFactory $parserFactory
-    ) {
-    }
+    ) {}
 
     /**
      * Fetch data from API source with authentication

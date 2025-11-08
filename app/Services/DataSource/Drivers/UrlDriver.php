@@ -13,8 +13,7 @@ class UrlDriver extends AbstractDriver
 {
     public function __construct(
         protected DataParserFactory $parserFactory
-    ) {
-    }
+    ) {}
 
     /**
      * Fetch data from URL source
