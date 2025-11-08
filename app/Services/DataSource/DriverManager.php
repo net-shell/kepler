@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\DataSource;
 
 use App\Models\DataSource;
@@ -14,24 +16,15 @@ class DriverManager
 {
     /**
      * Registered drivers
-     *
-     * @var array
      */
     protected array $drivers = [];
 
     /**
-     * Parser factory instance
-     *
-     * @var DataParserFactory
-     */
-    protected DataParserFactory $parserFactory;
-
-    /**
      * Create a new driver manager instance
      */
-    public function __construct()
-    {
-        $this->parserFactory = new DataParserFactory();
+    public function __construct(
+        protected DataParserFactory $parserFactory = new DataParserFactory()
+    ) {
         $this->registerDefaultDrivers();
     }
 

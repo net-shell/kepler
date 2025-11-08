@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Models\DataSource;
@@ -10,18 +12,11 @@ use Exception;
 class DataSourceService
 {
     /**
-     * Driver manager instance
-     *
-     * @var DriverManager
-     */
-    protected DriverManager $driverManager;
-
-    /**
      * Create a new data source service instance
      */
-    public function __construct(DriverManager $driverManager)
-    {
-        $this->driverManager = $driverManager;
+    public function __construct(
+        protected DriverManager $driverManager
+    ) {
     }
 
     /**

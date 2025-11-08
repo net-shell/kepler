@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Http\Requests\BatchStoreDocumentRequest;
@@ -18,9 +20,11 @@ use Illuminate\Support\Facades\Log;
 class DataController extends Controller
 {
     public function __construct(
-        private FileProcessingService $fileProcessingService,
-        private DataFeedController $dataFeedController
-    ) {}
+        protected FileProcessingService $fileProcessingService,
+        protected DataFeedController $dataFeedController
+    ) {
+    }
+
     /**
      * Feed data into the system (single document)
      */

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\Document;
@@ -9,11 +11,9 @@ use Illuminate\Http\Request;
 
 class DataFeedController extends Controller
 {
-    protected DataSourceService $dataSourceService;
-
-    public function __construct(DataSourceService $dataSourceService)
-    {
-        $this->dataSourceService = $dataSourceService;
+    public function __construct(
+        protected DataSourceService $dataSourceService
+    ) {
     }
 
     /**

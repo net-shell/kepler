@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\DataSource\Drivers;
 
 use App\Models\DataSource;
@@ -9,11 +11,9 @@ use Exception;
 
 class ApiDriver extends AbstractDriver
 {
-    protected DataParserFactory $parserFactory;
-
-    public function __construct(DataParserFactory $parserFactory)
-    {
-        $this->parserFactory = $parserFactory;
+    public function __construct(
+        protected DataParserFactory $parserFactory
+    ) {
     }
 
     /**

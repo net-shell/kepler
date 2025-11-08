@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SearchRequest;
@@ -10,11 +12,9 @@ use Illuminate\Http\JsonResponse;
 
 class SearchController extends Controller
 {
-    protected DataSourceService $dataSourceService;
-
-    public function __construct(DataSourceService $dataSourceService)
-    {
-        $this->dataSourceService = $dataSourceService;
+    public function __construct(
+        protected DataSourceService $dataSourceService
+    ) {
     }
 
     /**
